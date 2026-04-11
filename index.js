@@ -6,7 +6,7 @@ const admin = require("firebase-admin");
 // Initialize Firebase Admin SDK
 const serviceAccount = require("./kaelora-shop-firebase-key.json");
 const fileUpload = require('express-fileupload');
-const  cloudinary  = require('./utils/cloudinary');
+const cloudinary = require('./utils/cloudinary');
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount)
 });
@@ -73,6 +73,7 @@ async function startServer() {
     userCollection = db.collection("kaelora_user");
     productCollection = db.collection("kaelora_produts")
     cartCollection = db.collection('cart_item')
+    bannerCollection = db.collection("banner")
     console.log(" MongoDB connected successfully!");
 
     // Root
@@ -143,8 +144,8 @@ async function startServer() {
         res.status(500).json({ message: "Internal server error" });
       }
     });
-    console.log("cloudinary",cloudinary)
-  
+    console.log("cloudinary", cloudinary)
+
     // ------------------ PUT /users/:email ------------------
     app.put("/users/:email", verifyToken, async (req, res) => {
       try {
@@ -197,11 +198,40 @@ async function startServer() {
     });
     // Get all products
     app.get("/products", async (req, res) => {
-      const products = await productCollection.find().toArray();
-      res.send(products);
+      try {
+        const search = req.query.search;
+
+        let query = {};
+
+        if (search) {
+          query = {
+            $or: [
+              { name: { $regex: search, $options: "i" } },
+              { category: { $regex: search, $options: "i" } },
+              { brand: { $regex: search, $options: "i" } }
+            ]
+          };
+        }
+
+        let products = await productCollection.find(query).toArray();
+
+        if (search && products.length === 0) {
+          products = await productCollection.find().toArray();
+        }
+
+        res.send(products);
+      } catch (err) {
+        console.error(err);
+        res.status(500).send({ message: "Server error" });
+      }
     });
+
+    // app.get("/products", async (req, res) => {
+    //   const products = await productCollection.find().toArray();
+    //   res.send(products);
+    // });
     // Get single product
-    app.get("/products/:id", verifyToken, verifyAdmin, async (req, res) => {
+    app.get("/products/:id", async (req, res) => {
       try {
         const id = req.params.id
 
@@ -252,19 +282,60 @@ async function startServer() {
       res.send(result);
     })
     //get api for cart item
-    app.get("/cart",async(req,res)=>{
+    app.get("/cart", async (req, res) => {
       const email = req.query.email;
-      const result = await cartCollection.find({userEmail: email}).toArray();
+      const result = await cartCollection.find({ userEmail: email }).toArray();
       res.send(result)
     })
     //remove cart api
-   app.delete("/cart/:id",async(req,res)=>{
-    const id = req.params.id;
-    const result = await cartCollection.deleteOne({_id: new ObjectId(id)});
-    res.send(result)
-    console.log(result)
-    
-   })
+    app.delete("/cart/:id", async (req, res) => {
+      const id = req.params.id;
+      const result = await cartCollection.deleteOne({ _id: new ObjectId(id) });
+      res.send(result)
+      console.log(result)
+
+    })
+    //banner post api
+    app.post("/banner", async (req, res) => {
+      try {
+        const data = req.body;
+        // delete previous banner
+        await bannerCollection.deleteMany({});
+        // insert new banner
+        const result = await bannerCollection.insertOne({
+          ...data,
+          createdAt: new Date(),
+        });
+        res.status(201).json({
+          success: true,
+          message: "Banner replaced successfully",
+          data: result,
+        });
+      } catch (error) {
+        res.status(500).json({
+          success: false,
+          message: error.message,
+        });
+      }
+    });
+    //banner get api
+    app.get("/banner", async (req, res) => {
+      try {
+        const banner = await bannerCollection.findOne();
+
+        res.status(200).json({
+          success: true,
+          message: "Banner fetched successfully",
+          data: banner,
+        });
+
+      } catch (error) {
+        res.status(500).json({
+          success: false,
+          message: error.message,
+        });
+      }
+    });
     //  Start server here
     app.listen(PORT, () => {
       console.log(` Server running on port ${PORT}`);
