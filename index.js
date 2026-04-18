@@ -4,7 +4,7 @@ const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 require('dotenv').config();
 const admin = require("firebase-admin");
 // Initialize Firebase Admin SDK
-const serviceAccount = require("./kaelora-shop-firebase-key.json");
+const serviceAccount = JSON.parse(process.env.FIREBASE_CONFIG);
 const fileUpload = require('express-fileupload');
 const cloudinary = require('./utils/cloudinary');
 admin.initializeApp({
