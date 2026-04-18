@@ -74,6 +74,7 @@ async function startServer() {
     productCollection = db.collection("kaelora_produts")
     cartCollection = db.collection('cart_item')
     bannerCollection = db.collection("banner")
+    orderCollection = db.collection("orders")
     console.log(" MongoDB connected successfully!");
 
     // Root
@@ -249,7 +250,7 @@ async function startServer() {
         res.status(500).json({ message: "Invalid product ID" });
       }
     });
-    // server/routes/products.js
+
 
     // Add product
     app.post("/products", verifyToken, verifyAdmin, async (req, res) => {
@@ -335,6 +336,80 @@ async function startServer() {
           message: error.message,
         });
       }
+    });
+    //order post api
+    app.post("/orders", verifyToken, async (req, res) => {
+      const { items, orderType, totalAmount, customer } = req.body;
+
+      const order = {
+        userEmail: req.user.email,
+        customer,
+        items,
+        orderType,
+        totalAmount,
+        paymentMethod: "cod",
+        paymentStatus: "unpaid",
+        status: "pending",
+        createdAt: new Date()
+      };
+
+      const result = await orderCollection.insertOne(order);
+
+      res.send(result);
+    });
+    //delete from cart
+    app.delete("/cart", verifyToken, async (req, res) => {
+      const email = req.user.email;
+
+      const result = await cartCollection.deleteMany({
+        userEmail: email
+      });
+
+      res.send(result);
+    });
+    //get my order api
+    app.get("/my-orders", verifyToken, async (req, res) => {
+      try {
+        const email = req.user.email;
+
+        const result = await orderCollection
+          .find({ userEmail: email })
+          .sort({ createdAt: -1 })
+          .toArray();
+
+        res.send(result);
+      } catch (error) {
+        console.log(error);
+        res.status(500).send({ message: "Failed to get orders" });
+      }
+    });
+    //get order only admin
+    app.get("/orders", verifyToken, verifyAdmin, async (req, res) => {
+      const orders = await orderCollection.find().sort({ createdAt: -1 }).toArray();
+      res.send(orders);
+    });
+    //update order status
+    app.patch("/orders/:id",verifyToken, verifyAdmin, async (req, res) => {
+      const id = req.params.id;
+      const { status, paymentStatus } = req.body;
+
+      const result = await orderCollection.updateOne(
+        { _id: new ObjectId(id) },
+        {
+          $set: {
+            status,
+            paymentStatus,
+          },
+        }
+      );
+
+      res.send(result);
+    });
+    //delete order 
+    app.delete("/orders/:id",verifyToken, verifyAdmin, async (req, res) => {
+      const id = req.params.id;
+      const result = await orderCollection.deleteOne({ _id: new ObjectId(id) });
+      res.send(result);
     });
     //  Start server here
     app.listen(PORT, () => {
