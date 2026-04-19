@@ -4,7 +4,7 @@ const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 require('dotenv').config();
 const admin = require("firebase-admin");
 // Initialize Firebase Admin SDK
-const serviceAccount = JSON.parse(process.env.FIREBASE_CONFIG);
+const serviceAccount = require('./firebaseConfig.json')
 const fileUpload = require('express-fileupload');
 const cloudinary = require('./utils/cloudinary');
 admin.initializeApp({

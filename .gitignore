@@ -1,4 +1,4 @@
 node_modules
 .env
-kaelora-shop-firebase-key.json
+firebaseConfig.json
 tmp
